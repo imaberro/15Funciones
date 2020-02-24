@@ -249,27 +249,28 @@ class Metaheuristic:
 
             self.generateInitialPoblation()
             self.ordenarhienas()
-            # Cambiar hacia abajo
-            ####        SIMULATED ANNEALING         ####
+            ####        SAILFISH OPTIMIZER        ####
+            ### Generamos la población de Peces espadas y Sardinas
+            self.generateInitialPoblation()
+            ### Ordenamos ambas poblaciones, de las cuales, asumiremos que: para la población de peces espadas, el
+            ### primero será el Pez espada Elite y para la población de Sardinas, se asumirá que es la sardina herida.
+            self.ordenarhienas()
 
-            # posicion 0
+            PP = uniform(0.1, 0.3)
+            poblacionSailfish = int(self.numberIndividual * PP)
+            poblacionSardinas = []
+
+            for i in range(len(self.poblation) - poblacionSailfish):
+                index = int(uniform(0, len(self.poblation) - 1))
+                poblacionSardinas.append(self.poblation.pop(index))
+            ### Ordenamos ambas poblaciones, tanto de sardinas como de sailfish
+
+            self.ordenar(poblacionSardinas)
+
+            ### Parametros
+            A = 4
+            Epsilon = 0.001
             iteration = 0
-
-            # Temperatura Inicial
-            T0 = 999
-
-            # Temperatura Final
-            Tf = uniform(10 ** -10, 10 ** -5)
-
-            # Programación del Cooling Geometrico
-            # alpha=uniform(0.7, 0.99)
-            coolingRate = 0.9
-
-            # Primer sujeto*
-            # primerGuessX=self.generaRandom()
-            # originalSeed=seed(0.5)
-
-            mejorX = self.poblation[0]
             mejorFitness = self.poblation[0]
 
             self.ws.cell(row=3, column=1, value="Inicial")
@@ -277,35 +278,57 @@ class Metaheuristic:
                 self.ws.cell(row=3, column=i + 2, value=self.opt(self.poblation[i]))
 
             while iteration < self.numberIteration:
-                # No tocar^^
-                # Random Walk
-                randomWalkArriba = int(random() * 5)
-                randomWalkAbajo = int(random() * 5)
-                randomWalk = randomWalkArriba - randomWalkAbajo
+                for i in range(len(self.poblation)):
+                    if len(poblacionSardinas) != 0:
+                        ### Calculamos Lambda (Eq. 7)
+                        Lambda = 0
+                        Nsf = len(self.poblation)
+                        Ns = len(poblacionSardinas)
+                        PD = 1 - (Nsf / (Nsf + Ns))
+                        Lambda = 2 * random() * PD - PD
 
-                nuevoGuessX = [0,0]
-                nuevoGuessX[0] = mejorX[0] + randomWalk
-                nuevoGuessX[1] = mejorX[1] + randomWalk
-                # guessX= nuevoGuessX
-                difF = self.opt(nuevoGuessX) - self.opt(mejorX)
+                        ### Updateamos la posición del Sailfish (Eq. 6)
+                        self.poblation[i][0] = self.poblation[0][0] - Lambda * (
+                                    random() * ((self.poblation[0][0] + poblacionSardinas[0][0]) / 2) - self.poblation[i][0])
+                        self.poblation[i][1] = self.poblation[0][1] - Lambda * (
+                                random() * ((self.poblation[0][1] + poblacionSardinas[0][1]) / 2) - self.poblation[i][
+                            1])
 
-                if self.opt(nuevoGuessX) < self.opt(self.poblation[0]):
-                    self.poblation[0] = nuevoGuessX
+                ### Ahora calculamos el Poder de Ataque del Sailfish (Eq. 10)
+                AP = A * (1 - (2 * iteration * Epsilon))
+
+                if AP < 0.5:
+                    ### Calculamos alfa (Eq. 11)
+                    Alfa = int(Ns * AP)
+                    ### Calculamos beta (Eq. 12)
+                    Beta = int(AP)
+
+                    ### Seleccionamos un set de sardinas en base al valor de Alfa y Beta
+                    ### Y updateamos la posición de la sardina seleccionada (Eq. 9)
+                    for i in range(len(poblacionSardinas)):
+                        index = int(uniform(0, len(poblacionSardinas) - 1))
+                        poblacionSardinas[index][0] = random() * (self.poblation[0][0] - poblacionSardinas[i][0] + AP)
+                        poblacionSardinas[index][1] = random() * (self.poblation[0][1] - poblacionSardinas[i][1] + AP)
+
                 else:
-                    if exp(difF / T0) < random():
-                        self.poblation[0] = nuevoGuessX
+                    ### Updateamos la posición de todas las sardinas (Eq. 9)
+                    for i in range(len(poblacionSardinas)):
+                        poblacionSardinas[i][0] = random() * (self.poblation[0][0] - poblacionSardinas[i][0] + AP)
+                        poblacionSardinas[i][1] = random() * (self.poblation[0][1] - poblacionSardinas[i][1] + AP)
 
-                mejorX = nuevoGuessX
+                ### Calculamos el fitness de todas las sardinas
+                ### Si hay una mejor solución en la población de sardinas entonces:
                 if self.opt(self.poblation[0]) < self.opt(mejorFitness):
+                    ### Reemplazamos el Sailfish con la Sardina herida (Eq. 13)
                     mejorFitness = self.poblation[0]
-                T0 *= coolingRate
+                    ### Removemos la sardina cazada de la población
 
-                if T0 < Tf:
-                    T0 = 999
-                    self.generateInitialPoblation()
+                    ### Updateamos el mejor Sailfish y Sardina
+
+                self.ordenarhienas()
+                self.ordenar(poblacionSardinas)
+
                 iteration += 1
-
-                ch = []
                 print("iteracion " + str(iteration + (5000 * (self.times - 1))) + " funcion F" + str(self.iter + 1))
                 self.ws.cell(row=3 + iteration, column=1, value=iteration)
                 for i in range(1):
@@ -321,68 +344,80 @@ class Metaheuristic:
         else:
             self.ws.cell(row=1, column=1, value="Resultados metaheuristica con formula "+self.type)
 
-
+            ####        SAILFISH OPTIMIZER        ####
+            ### Generamos la población de Peces espadas y Sardinas
             self.generateInitialPoblation()
+            ### Ordenamos ambas poblaciones, de las cuales, asumiremos que: para la población de peces espadas, el
+            ### primero será el Pez espada Elite y para la población de Sardinas, se asumirá que es la sardina herida.
             self.ordenarhienas()
-            #Cambiar hacia abajo
-            ####        SIMULATED ANNEALING         ####
 
-            #posicion 0
+            PP = uniform(0.1, 0.3)
+            poblacionSailfish = int(self.numberIndividual * PP)
+            poblacionSardinas = []
+
+            for i in range(len(self.poblation) - poblacionSailfish):
+                index = int(uniform(0, len(self.poblation) - 1))
+                poblacionSardinas.append(self.poblation.pop(index))
+            ### Ordenamos ambas poblaciones, tanto de sardinas como de sailfish
+
+            self.ordenar(poblacionSardinas)
+
+            ### Parametros
+            A = 4
+            Epsilon = 0.001
             iteration = 0
+            mejorFitness = self.poblation[0]
 
-            #Temperatura Inicial
-            T0=999
-
-            #Temperatura Final
-            Tf=uniform(10**-10, 10**-5)
-
-            #Programación del Cooling Geometrico
-            #alpha=uniform(0.7, 0.99)
-            coolingRate=0.9
-
-            #Primer sujeto*
-            #primerGuessX=self.generaRandom()
-            #originalSeed=seed(0.5)
-
-
-            mejorX=self.poblation[0]
-            mejorFitness=self.poblation[0]
-
-            self.ws.cell(row=3,column=1,value="Inicial")
+            self.ws.cell(row=3, column=1, value="Inicial")
             for i in range(1):
-                self.ws.cell(row=3,column=i+2,value=self.opt(self.poblation[i]))
+                self.ws.cell(row=3, column=i + 2, value=self.opt(self.poblation[i]))
 
+            while iteration < self.numberIteration:
+                for i in range(len(self.poblation)):
+                    if len(poblacionSardinas) != 0:
+                        ### Calculamos Lambda (Eq. 7)
+                        Lambda = 0
+                        Nsf = len(self.poblation)
+                        Ns = len(poblacionSardinas)
+                        PD = 1 - (Nsf / (Nsf + Ns))
+                        Lambda = 2 * random() * PD - PD
 
+                        ### Updateamos la posición del Sailfish (Eq. 6)
+                        self.poblation[i] = self.poblation[0] - Lambda * (random() * ((self.poblation[0] + poblacionSardinas[0]) / 2) - self.poblation[i])
 
+                ### Ahora calculamos el Poder de Ataque del Sailfish (Eq. 10)
+                AP = A * (1 - (2 * iteration * Epsilon))
 
-            while iteration<self.numberIteration:
-                #No tocar^^
-                # Random Walk
-                randomWalkArriba = int(random() * 5)
-                randomWalkAbajo = int(random() * 5)
-                randomWalk = randomWalkArriba - randomWalkAbajo
+                if AP < 0.5:
+                    ### Calculamos alfa (Eq. 11)
+                    Alfa = int(Ns * AP)
+                    ### Calculamos beta (Eq. 12)
+                    Beta = int(AP)
 
-                nuevoGuessX= mejorX + randomWalk
-                #guessX= nuevoGuessX
-                difF=self.opt(nuevoGuessX)-self.opt(mejorX)
-
-                if self.opt(nuevoGuessX)<self.opt(self.poblation[0]):
-                    self.poblation[0]=nuevoGuessX
+                    ### Seleccionamos un set de sardinas en base al valor de Alfa y Beta
+                    ### Y updateamos la posición de la sardina seleccionada (Eq. 9)
+                    for i in range(len(poblacionSardinas)):
+                        index = int(uniform(0, len(poblacionSardinas) - 1))
+                        poblacionSardinas[index] = random() * (self.poblation[0] - poblacionSardinas[i] + AP)
                 else:
-                    if exp(difF/T0)<random():
-                        self.poblation[0]=nuevoGuessX
+                    ### Updateamos la posición de todas las sardinas (Eq. 9)
+                    for i in range(len(poblacionSardinas)):
+                        poblacionSardinas[i] = random() * (self.poblation[0] - poblacionSardinas[i] + AP)
 
-                mejorX=nuevoGuessX
+                ### Calculamos el fitness de todas las sardinas
+                ### Si hay una mejor solución en la población de sardinas entonces:
                 if self.opt(self.poblation[0]) < self.opt(mejorFitness):
+                    ### Reemplazamos el Sailfish con la Sardina herida (Eq. 13)
                     mejorFitness=self.poblation[0]
-                T0 *= coolingRate
+                    ### Removemos la sardina cazada de la población
+                    poblacionSardinas.pop(0)
+                    ### Updateamos el mejor Sailfish y Sardina
 
-                if T0 < Tf:
-                    T0 = 999
-                    self.generateInitialPoblation()
+
+                self.ordenarhienas()
+                self.ordenar(poblacionSardinas)
+
                 iteration += 1
-
-                ch=[]
                 print("iteracion "+str(iteration+(5000*(self.times-1)))+ " funcion F"+str(self.iter+1))
                 self.ws.cell(row=3+iteration, column=1, value=iteration)
                 for i in range(1):
@@ -448,6 +483,20 @@ class Metaheuristic:
                     self.poblation[j] = self.poblation[j+1]
                     self.poblation[j+1]= aux
         return
+
+    def ordenar(self, arreglo):
+        orden = False
+        i = 0
+        while (i < len(arreglo)) and (orden == False):
+            i += 1
+            orden = True
+            for j in range(len(arreglo) - 1):
+                if self.opt(arreglo[j + 1]) < self.opt(arreglo[j]):
+                    orden = False
+                    aux = arreglo[j]
+                    arreglo[j] = arreglo[j + 1]
+                    arreglo[j + 1] = aux
+        return arreglo
 
 
     def generaRandom(self):
@@ -535,7 +584,9 @@ class Metaheuristic:
 
 
 
-numberPoblation = 1
+
+
+numberPoblation = 25
 numberIterations = 5000
 numberIterationsForStatistics=15
 iterationsForStatistics=0
